@@ -22,8 +22,8 @@ This document explains the **data folder structure**, the **knowledge graph sche
 
 ```
 data/
-├── seeds/                          # 11 Cypher files defining the knowledge graph
-│   ├── 01_constraints.cypher       # Unique constraints on all node types
+├── seeds/                          # 12 Cypher files defining the knowledge graph
+│   ├── 01_constraints.cypher       # Unique constraints on all node types (incl. rating system)
 │   ├── 02_departments.cypher       # 7 Department nodes
 │   ├── 03_roles.cypher             # 36 Role definitions across 7 departments
 │   ├── 04_skills.cypher            # 62 Skill nodes (technical, soft, domain)
@@ -33,9 +33,10 @@ data/
 │   ├── 08_relationships.cypher     # 1,820+ relationships connecting all nodes
 │   ├── 09_certifications.cypher    # Employee certification data
 │   ├── 10_promotions.cypher        # Promotion history
-│   └── 11_admin_users.cypher       # Admin user accounts for login
+│   ├── 11_admin_users.cypher       # Admin user accounts for login
+│   └── 12_rating_rules.cypher      # Rating system: RatingRule + RatingThreshold nodes
 │
-├── load_data.py                    # Main Python script to execute all seed files
+├── load_data.py                    # Main Python script to execute all seed files in order
 ├── requirements.txt                # Python dependencies (neo4j, python-dotenv)
 ├── .env                           # Local Neo4j credentials (not committed)
 └── KNOWLEDGE_GRAPH_GUIDE.md        # This file
@@ -57,9 +58,11 @@ The knowledge graph represents **Coditas, an IT consulting company** with:
 
 | Metric | Count | Details |
 |--------|-------|---------|
-| **Nodes** | ~279 | 155 employees, 7 depts, 36 roles, 62 skills, 7 projects, 5 clients, 7 certifications |
-| **Relationships** | ~1,847 | BELONGS_TO, HAS_ROLE, REPORTS_TO, ASSIGNED_TO, HAS_SKILL, HAS_CERTIFICATION, etc. |
-| **Execution Time** | <2 seconds | All 11 seed files load and execute sequentially |
+| **Nodes** | ~309 | 155 employees, 7 depts, 36 roles, 62 skills, 7 projects, 5 clients, 7 certifications + 30 rating rule/threshold nodes |
+| **Relationships** | ~3,700+ | Core org relationships + sprint/task assignments + HAS_PROJECT_RATING + HAS_RATING_BREAKDOWN (after seeding) |
+| **Execution Time** | <2 seconds | All 12 seed files load and execute sequentially |
+
+> **Note:** Relationship count grows significantly after running `backend/scripts/seed_sprints_and_ratings.py`, which adds sprint tasks, ASSIGNED_TASK relationships, HAS_PROJECT_RATING, and HAS_RATING_BREAKDOWN relationships for NeuraVault employees.
 
 ---
 
@@ -263,6 +266,85 @@ The knowledge graph represents **Coditas, an IT consulting company** with:
 
 ---
 
+### 9. **RatingRule** (5 nodes)
+**Purpose:** Defines the 5 dimensions used in multi-dimensional employee ratings. Loaded by `12_rating_rules.cypher`.
+
+**Properties:**
+```
+{
+  rule_id: String (unique key),        // "RULE-PERF-001", "RULE-REL-001", etc.
+  name: String,                        // Human-readable dimension name
+  dimension: String,                   // "PERFORMANCE", "RELIABILITY", "TEAMWORK", "DEVELOPMENT", "CRAFTSMANSHIP"
+  weight: Float,                       // Contribution to overall rating (sums to 1.0)
+  description: String,
+  metric_source: String,               // Where the raw metric comes from
+  version: String,                     // "1.0"
+  active: Boolean                      // true = used in rating calculation
+}
+```
+
+**All Dimensions:**
+| Dimension | Weight | Metric |
+|---|---|---|
+| PERFORMANCE | 40% | Task completion rate (tasks_completed / tasks_assigned) |
+| RELIABILITY | 20% | Penalty days (late + absence days) |
+| TEAMWORK | 20% | Manager feedback score (0–100) |
+| DEVELOPMENT | 10% | New certifications + skills acquired |
+| CRAFTSMANSHIP | 10% | Bug ratio (bugs / tasks_completed) |
+
+---
+
+### 10. **RatingThreshold** (20+ nodes)
+**Purpose:** Star-rating cutoffs for each dimension. Each `RatingRule` has 4–5 thresholds connected via `HAS_THRESHOLD`.
+
+**Properties:**
+```
+{
+  threshold_id: String (unique key),
+  min_value: Float,
+  max_value: Float,
+  star_value: Integer,                 // 1–5
+  description: String
+}
+```
+
+**Example (PERFORMANCE dimension):**
+- ≥ 80% completion → 5 stars
+- ≥ 60% → 4 stars
+- ≥ 40% → 3 stars
+- ≥ 20% → 2 stars
+- < 20% → 1 star
+
+---
+
+### 11. **Sprint / Task** (created by seed script)
+**Purpose:** Sprint and task nodes are created by `backend/scripts/seed_sprints_and_ratings.py` for the NeuraVault project.
+
+- **Sprint:** `{sprint_id, name, start_date, end_date, status}`
+- **Task:** `{task_id, title, feature_area, status}`
+
+---
+
+### 12. **RatingExplanation** (created by seed script)
+**Purpose:** Stores the narrative context for a rating calculation. One node per employee-project-period combination.
+
+**Properties:**
+```
+{
+  explanation_id: String (unique key),
+  employee_id: String,
+  project_id: String,
+  period: String,                      // "2024-Q1"
+  overall_stars: Float,
+  calculation_date: DateTime,
+  calculation_method: String,          // "rules-v1.0"
+  manager_comment: String (nullable),
+  system_comment: String (nullable)
+}
+```
+
+---
+
 ## Relationship Types & Connections
 
 ### 1. **BELONGS_TO** (155 total)
@@ -411,9 +493,82 @@ The knowledge graph represents **Coditas, an IT consulting company** with:
 
 ---
 
+### 10. **HAS_THRESHOLD** (20+ total)
+**From:** RatingRule → **To:** RatingThreshold
+**Purpose:** Links each rating dimension to its star-cutoff thresholds
+
+No properties — the thresholds are self-contained.
+
+---
+
+### 11. **HAS_SPRINT / HAS_TASK** (created by seed script)
+- `(Project)-[:HAS_SPRINT]->(Sprint)` — links NeuraVault to its sprints
+- `(Sprint)-[:HAS_TASK]->(Task)` — links each sprint to its tasks
+
+---
+
+### 12. **ASSIGNED_TASK** (created by seed script)
+**From:** Employee → **To:** Task
+**Purpose:** Records which tasks were assigned to each employee and whether they completed them
+
+**Properties:**
+```
+{
+  assigned_date: Date,
+  completed: Boolean,
+  completed_date: Date (nullable),
+  period: String                      // "2024-Q1" — used by RatingCalculator
+}
+```
+
+---
+
+### 13. **HAS_PROJECT_RATING** (created by seed script)
+**From:** Employee → **To:** Project
+**Purpose:** Overall star rating for an employee on a project in a given period
+
+**Properties:**
+```
+{
+  overall_stars: Float,               // 1.0–5.0 (rounded to nearest 0.5)
+  period: String,                     // "2024-Q1"
+  calculation_date: DateTime,
+  calculation_method: String          // "rules-v1.0"
+}
+```
+
+---
+
+### 14. **HAS_RATING_BREAKDOWN** (created by seed script)
+**From:** Employee → **To:** Project
+**Purpose:** Per-dimension breakdown of a rating — one relationship per dimension per period. Used by the chatbot's "why does X have N stars?" queries.
+
+**Properties:**
+```
+{
+  dimension: String,                  // "PERFORMANCE", "RELIABILITY", etc.
+  dimension_stars: Float,
+  rule_id: String,
+  metric_value: Float,                // Raw metric (ratio, days, score, count)
+  metric_type: String,                // "percentage", "days", "score", "count", "ratio"
+  weight: Float,
+  weighted_contribution: Float,
+  period: String
+}
+```
+
+**Example:** For Ravi Shankar on NeuraVault (2024-Q1):
+- PERFORMANCE: 1 star, metric_value=0.2 (20% tasks completed), weight=0.4
+- RELIABILITY: 3 stars, metric_value=5 (5 penalty days), weight=0.2
+- ...and 3 more dimensions
+
+---
+
 ## Seed Files Explained
 
 Each Cypher file builds the graph incrementally. They **must run in order** because later files depend on nodes created earlier.
+
+> **Post-seed step:** After running `load_data.py`, run `backend/scripts/seed_sprints_and_ratings.py` to populate sprints, tasks, and multi-dimensional ratings for NeuraVault employees.
 
 ### **01_constraints.cypher** (10 lines)
 **What it does:** Creates unique constraints on IDs to ensure idempotency
@@ -673,6 +828,29 @@ SET u.username = 'admin',
 ```
 
 **Output:** Admin user nodes (typically 5–10 for system testing)
+
+---
+
+### **12_rating_rules.cypher**
+**What it does:** Creates the 5 RatingRule nodes and their RatingThreshold nodes used by the multi-dimensional rating system.
+
+```cypher
+// Task Completion rule (40% weight)
+MERGE (r:RatingRule {rule_id: 'RULE-PERF-001'})
+SET r.name = 'Task Completion',
+    r.dimension = 'PERFORMANCE',
+    r.weight = 0.4,
+    r.active = true, ...
+
+// Thresholds for PERFORMANCE
+MERGE (t1:RatingThreshold {threshold_id: 'THRESH-PERF-5'})
+SET t1.min_value = 0.8, t1.max_value = 1.0, t1.star_value = 5;
+MERGE (r)-[:HAS_THRESHOLD]->(t1);
+```
+
+**Output:** 5 RatingRule nodes, 20+ RatingThreshold nodes, HAS_THRESHOLD relationships
+
+**Why it runs last:** Rating rules are standalone — they don't depend on employees or projects, but the seeding script needs them to exist before calculating ratings.
 
 ---
 
@@ -1059,14 +1237,15 @@ RETURN e.employee_id, e.full_name, e.email
 
 The `data/` folder is the **foundation** of the Org Knowledge Hub:
 
-1. **Structure:** 11 ordered Cypher seed files that build the graph incrementally
-2. **Content:** 279 nodes (employees, roles, departments, projects, skills, clients, certifications) and 1,847 relationships
+1. **Structure:** 12 ordered Cypher seed files that build the graph incrementally
+2. **Content:** ~309 nodes (employees, roles, departments, projects, skills, clients, certifications, rating rules/thresholds) and 3,700+ relationships (including sprint/task/rating data after the seed script runs)
 3. **Loading:** `load_data.py` orchestrates execution with:
    - Connection pooling
    - Comment stripping (data cleaning)
    - Error handling
    - Final validation (node/relationship counts)
 4. **Idempotency:** Safe to run multiple times; uses MERGE and unique constraints
-5. **Maintenance:** Easy to add/update data by running additional Cypher queries
+5. **Rating System:** After `load_data.py`, run `backend/scripts/seed_sprints_and_ratings.py` to populate sprint tasks, ASSIGNED_TASK relationships, HAS_PROJECT_RATING, and HAS_RATING_BREAKDOWN for NeuraVault employees
+6. **Maintenance:** Easy to add/update data by running additional Cypher queries
 
-For any changes to the knowledge graph, add new Cypher files in `seeds/` (name them `12_*.cypher`, etc.) and they'll be picked up automatically on the next run!
+For any changes to the knowledge graph, add new Cypher files in `seeds/` (name them `13_*.cypher`, etc.) and they'll be picked up automatically on the next run!

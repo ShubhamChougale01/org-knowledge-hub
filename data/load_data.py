@@ -156,7 +156,7 @@ def main():
 
     if node_counts:
         total = 0
-        for label in sorted(node_counts.keys()):
+        for label in sorted(k for k in node_counts.keys() if k is not None):
             count = node_counts[label]
             total += count
             print(f"   {label:20s}: {count:4d}")

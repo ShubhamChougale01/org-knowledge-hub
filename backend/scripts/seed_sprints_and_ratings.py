@@ -15,6 +15,15 @@ import os
 from datetime import datetime, timedelta
 import random
 
+# Force UTF-8 on Windows so the star/check glyphs printed below don't crash the
+# console (cp1252 can't encode ★ ✓ ✗). Mirrors data/load_data.py.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from neo4j import GraphDatabase
@@ -27,9 +36,14 @@ def seed_sprints_and_ratings():
 
     with driver.session() as session:
         # Clean up previous seed data so re-runs are idempotent
-        print("[CLEANUP] Removing old Sprint/Task/Rating data...")
+        print("[CLEANUP] Removing old Sprint/Task/Rating/Metric data...")
         session.run("MATCH (s:Sprint) DETACH DELETE s")
         session.run("MATCH (t:Task) DETACH DELETE t")
+        session.run("MATCH (a:Attendance) DETACH DELETE a")
+        session.run("MATCH (mf:ManagerFeedback) DETACH DELETE mf")
+        session.run("MATCH (br:BugRatio) DETACH DELETE br")
+        session.run("MATCH (re:RatingExplanation) DETACH DELETE re")
+        session.run("MATCH ()-[r:HAS_SKILL_ACQUIRED]->() DELETE r")
         session.run("""
             MATCH ()-[r:HAS_PROJECT_RATING]->()
             DELETE r
@@ -176,23 +190,122 @@ def seed_sprints_and_ratings():
 
             print(f"  [OK] Assigned tasks to all {emp_count} employees with varied ratings")
 
-        # Create HAS_PROJECT_RATING using RatingCalculator
-        print(f"\n[RATING] Creating multi-dimensional project-level ratings...")
-
-        # Get NeuraVault project ID
+        # Get NeuraVault project ID (needed for both metric seeding and ratings)
         result = session.run("MATCH (p:Project {name: 'NeuraVault'}) RETURN p.project_id as project_id")
         project_id = result.single()['project_id']
 
-        # Get all employees assigned to NeuraVault
-        result = session.run("""
+        # ─── Seed the 4 non-PERFORMANCE dimension metrics ────────────────
+        # Each employee's metrics are correlated to their performance tier
+        # (emp_idx // 7: tier 0 = top performers, tier 4 = lowest) with random
+        # intra-band noise, so the overall rating spreads across the full 1-5 stars.
+        period = "2024-Q1"  # same period the sprints fall in
+        print(f"\n[METRICS] Seeding Attendance / ManagerFeedback / BugRatio / skills ({period})...")
+
+        # Pull some skills once so we can attach "acquired" skills per employee
+        skill_rows = session.run("MATCH (s:Skill) RETURN s.skill_id AS skill_id LIMIT 25")
+        skill_ids = [r["skill_id"] for r in skill_rows]
+
+        # Per-tier metric bands: (penalty_days, feedback_score, bug_ratio, skills_acquired)
+        # Bands map directly onto the threshold cutoffs in 12_rating_rules.cypher.
+        tier_bands = [
+            {"penalty": (0, 5),   "feedback": (90, 100), "bug": (0.00, 0.05), "skills": 3},  # tier 0 → 5★
+            {"penalty": (6, 10),  "feedback": (80, 89),  "bug": (0.05, 0.10), "skills": 2},  # tier 1 → 4★
+            {"penalty": (11, 15), "feedback": (70, 79),  "bug": (0.10, 0.20), "skills": 1},  # tier 2 → 3★
+            {"penalty": (16, 20), "feedback": (60, 69),  "bug": (0.20, 0.40), "skills": 1},  # tier 3 → 2★
+            {"penalty": (21, 28), "feedback": (45, 59),  "bug": (0.40, 0.55), "skills": 0},  # tier 4 → 1★
+        ]
+
+        for emp_idx, emp in enumerate(employees):
+            emp_id = emp['employee_id']
+            tier = min(emp_idx // 7, 4)
+            band = tier_bands[tier]
+
+            # --- RELIABILITY: Attendance ---
+            penalty = random.randint(*band["penalty"])
+            late = random.randint(0, penalty)
+            absence = penalty - late
+            session.run("""
+                MATCH (e:Employee {employee_id: $emp_id})
+                MERGE (a:Attendance {attendance_id: $att_id})
+                SET a.period = $period,
+                    a.total_penalty_days = $penalty,
+                    a.late_days = $late,
+                    a.absence_days = $absence
+                MERGE (e)-[:HAS_ATTENDANCE]->(a)
+            """, {
+                'emp_id': emp_id,
+                'att_id': f"ATT-{emp_id}-{period}",
+                'period': period, 'penalty': penalty, 'late': late, 'absence': absence,
+            })
+
+            # --- TEAMWORK: ManagerFeedback ---
+            score = random.randint(*band["feedback"])
+            session.run("""
+                MATCH (e:Employee {employee_id: $emp_id})
+                MERGE (mf:ManagerFeedback {feedback_id: $fb_id})
+                SET mf.period = $period,
+                    mf.feedback_score = $score,
+                    mf.feedback_comment = $comment
+                MERGE (mf)-[:RATED_EMPLOYEE]->(e)
+            """, {
+                'emp_id': emp_id,
+                'fb_id': f"FB-{emp_id}-{period}",
+                'period': period, 'score': score,
+                'comment': f"Manager feedback score {score}/100 for {period}",
+            })
+
+            # --- CRAFTSMANSHIP: BugRatio ---
+            ratio = round(random.uniform(*band["bug"]), 3)
+            tasks_completed = random.randint(10, 30)
+            bugs_reported = int(round(ratio * tasks_completed))
+            session.run("""
+                MATCH (e:Employee {employee_id: $emp_id})
+                MERGE (br:BugRatio {bug_ratio_id: $br_id})
+                SET br.period = $period,
+                    br.project_id = $project_id,
+                    br.bug_ratio = $ratio,
+                    br.bugs_reported = $bugs,
+                    br.tasks_completed = $tasks
+                MERGE (e)-[:HAS_BUG_RATIO {period: $period}]->(br)
+            """, {
+                'emp_id': emp_id,
+                'br_id': f"BUG-{emp_id}-{period}",
+                'period': period, 'project_id': project_id,
+                'ratio': ratio, 'bugs': bugs_reported, 'tasks': tasks_completed,
+            })
+
+            # --- DEVELOPMENT: HAS_SKILL_ACQUIRED (skills gained within the period) ---
+            n_skills = min(band["skills"], len(skill_ids))
+            if n_skills > 0:
+                acquired = random.sample(skill_ids, n_skills)
+                for sk in acquired:
+                    session.run("""
+                        MATCH (e:Employee {employee_id: $emp_id})
+                        MATCH (s:Skill {skill_id: $skill_id})
+                        MERGE (e)-[r:HAS_SKILL_ACQUIRED]->(s)
+                        SET r.acquired_date = date($acquired_date)
+                    """, {
+                        'emp_id': emp_id, 'skill_id': sk,
+                        'acquired_date': '2024-01-15',
+                    })
+
+        print(f"  [OK] Seeded metrics for all {len(employees)} employees across 5 tiers")
+
+        # Create HAS_PROJECT_RATING using RatingCalculator
+        print(f"\n[RATING] Creating multi-dimensional project-level ratings...")
+
+        # Get all employees assigned to NeuraVault — eagerly fetch before rating loop
+        # to avoid cursor conflict when RatingCalculator opens its own sessions
+        emp_result = session.run("""
             MATCH (e:Employee)-[:ASSIGNED_TO {is_current: true}]->(p:Project {name: 'NeuraVault'})
             RETURN e.employee_id as emp_id, e.full_name as emp_name
         """)
+        emp_list = [{"emp_id": r["emp_id"], "emp_name": r["emp_name"]} for r in emp_result]
 
         period = "2024-Q1"  # Use same period as sprints
         ratings_count = 0
 
-        for emp_record in result:
+        for emp_record in emp_list:
             emp_id = emp_record['emp_id']
             emp_name = emp_record['emp_name']
 

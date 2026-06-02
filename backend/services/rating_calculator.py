@@ -101,8 +101,8 @@ class RatingCalculator:
             if dimension == 'PERFORMANCE':  # Task Completion
                 result = session.run("""
                     MATCH (e:Employee {employee_id: $employee_id})
-                    MATCH (e)-[r:HAS_ASSIGNED_TASK {period: $period}]->(t:Task)
-                    MATCH (t)-[:FOR_PROJECT]->(p:Project {project_id: $project_id})
+                    MATCH (e)-[r:ASSIGNED_TASK]->(t:Task)<-[:HAS_TASK]-(s:Sprint)<-[:HAS_SPRINT]-(p:Project {project_id: $project_id})
+                    WHERE r.period = $period
                     WITH
                         count(CASE WHEN r.completed = true THEN 1 END) as completed,
                         count(t) as total
@@ -193,12 +193,13 @@ class RatingCalculator:
                 result = session.run("""
                     MATCH (e:Employee {employee_id: $employee_id})
                     WITH e
-                    OPTIONAL MATCH (e)-[:HAS_CERTIFICATION]->(cert:Certification)
-                    WHERE cert.issued_date >= date($period_start)
+                    OPTIONAL MATCH (e)-[hc:HAS_CERTIFICATION]->(cert:Certification)
+                    WHERE hc.issued_date >= date($period_start)
                     WITH e, count(cert) as cert_count
-                    OPTIONAL MATCH (e)-[:HAS_SKILL_ACQUIRED]->(skill)
-                    WHERE skill.acquired_date >= date($period_start)
-                    RETURN cert_count + count(skill) as total_acquisitions
+                    OPTIONAL MATCH (e)-[hsa:HAS_SKILL_ACQUIRED]->(skill:Skill)
+                    WHERE hsa.acquired_date >= date($period_start)
+                    WITH cert_count, count(skill) as skill_count
+                    RETURN cert_count + skill_count as total_acquisitions
                 """, employee_id=employee_id, period_start=_period_to_date_str(period))
 
                 record = result.single()
@@ -391,21 +392,19 @@ class RatingCalculator:
                 """, employee_id=employee_id, project_id=project_id,
                     period=period, overall_stars=overall_stars)
 
-                # 2. Create HAS_RATING_BREAKDOWN relationships for each dimension
+                # 2. Upsert HAS_RATING_BREAKDOWN relationships for each dimension
                 for dim in breakdown:
                     session.run("""
                         MATCH (e:Employee {employee_id: $employee_id})
                         MATCH (p:Project {project_id: $project_id})
-                        CREATE (e)-[r:HAS_RATING_BREAKDOWN {
-                            dimension: $dimension,
-                            dimension_stars: $dimension_stars,
-                            rule_id: $rule_id,
-                            metric_value: $metric_value,
-                            metric_type: $metric_type,
-                            weight: $weight,
-                            weighted_contribution: $weighted_contribution,
-                            period: $period
-                        }]->(p)
+                        MERGE (e)-[r:HAS_RATING_BREAKDOWN {dimension: $dimension, period: $period}]->(p)
+                        SET
+                            r.dimension_stars = $dimension_stars,
+                            r.rule_id = $rule_id,
+                            r.metric_value = $metric_value,
+                            r.metric_type = $metric_type,
+                            r.weight = $weight,
+                            r.weighted_contribution = $weighted_contribution
                     """,
                         employee_id=employee_id,
                         project_id=project_id,
@@ -419,9 +418,12 @@ class RatingCalculator:
                         period=period
                     )
 
-                # 3. Create/update RatingExplanation node
+                # 3. Create/update RatingExplanation node and link it to the
+                #    Employee and Project it explains (so it is traversable, not orphaned)
                 explanation_id = f"EXPLAIN-{employee_id}-{project_id}-{period}"
                 session.run("""
+                    MATCH (e:Employee {employee_id: $employee_id})
+                    MATCH (p:Project {project_id: $project_id})
                     MERGE (re:RatingExplanation {explanation_id: $explanation_id})
                     SET
                         re.employee_id = $employee_id,
@@ -432,6 +434,8 @@ class RatingCalculator:
                         re.calculation_method = 'rules-v1.0',
                         re.manager_comment = $manager_comment,
                         re.system_comment = $system_comment
+                    MERGE (e)-[:HAS_RATING_EXPLANATION {period: $period}]->(re)
+                    MERGE (re)-[:EXPLAINS_RATING_FOR]->(p)
                 """,
                     explanation_id=explanation_id,
                     employee_id=employee_id,
