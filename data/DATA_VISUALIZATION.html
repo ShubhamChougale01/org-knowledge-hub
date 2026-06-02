@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Org Knowledge Hub - Data Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        nav {
+            background: #f8f9fa;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        nav button:hover {
+            background: #e9ecef;
+            color: #667eea;
+        }
+
+        nav button.active {
+            background: #667eea;
+            color: white;
+            border-bottom: 3px solid #764ba2;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        section h2 {
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .summary-card h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .summary-card .number {
+            font-size: 3em;
+            font-weight: bold;
+        }
+
+        .org-chart {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 30px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+
+        .department-section {
+            margin-bottom: 50px;
+        }
+
+        .department-header {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .department-header h3 {
+            font-size: 1.4em;
+        }
+
+        .department-header .count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .employee-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .employee-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .employee-id {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 12px;
+            font-family: monospace;
+        }
+
+        .employee-info {
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .employee-info strong {
+            color: #333;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            margin: 2px 2px 2px 0;
+            color: #666;
+        }
+
+        .badge.special {
+            background: #667eea;
+            color: white;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .project-card {
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .project-card:hover {
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .project-card.active {
+            border-left-color: #28a745;
+        }
+
+        .project-card.completed {
+            border-left-color: #6c757d;
+            opacity: 0.85;
+        }
+
+        .project-card.onhold {
+            border-left-color: #ffc107;
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .project-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .project-status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .project-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .project-status.completed {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .project-status.onhold {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .project-desc {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .project-meta {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tech-tag {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #667eea;
+        }
+
+        .skill-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .skill-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .skill-group h4 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .skill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .skill-item {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+
+        .hierarchy-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .hierarchy-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .hierarchy-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .hierarchy-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .role-level {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 3px solid #667eea;
+        }
+
+        .stat-box h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stat-box .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .client-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .client-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .client-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .client-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .client-info {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e9ecef;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .project-grid, .employee-grid, .skill-grid {
+                grid-template-columns: 1fr;
+            }
+
+            nav button {
+                font-size: 12px;
+                padding: 10px;
+            }
+
+            .department-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 Org Knowledge Hub</h1>
+            <p>Complete Data Visualization - 155 Employees | 7 Projects | 6 Departments</p>
+        </header>
+
+        <nav>
+            <button class="tab-btn active" onclick="showTab('overview')">📊 Overview</button>
+            <button class="tab-btn" onclick="showTab('org-structure')">🏛️ Org Structure</button>
+            <button class="tab-btn" onclick="showTab('employees')">👥 Employees</button>
+            <button class="tab-btn" onclick="showTab('projects')">📋 Projects</button>
+            <button class="tab-btn" onclick="showTab('skills')">🎯 Skills</button>
+            <button class="tab-btn" onclick="showTab('clients')">🤝 Clients</button>
+            <button class="tab-btn" onclick="showTab('hierarchy')">📈 Hierarchy</button>
+        </nav>
+
+        <div class="content">
+            <!-- OVERVIEW TAB -->
+            <section id="overview" class="section active">
+                <h2>📊 Data Overview</h2>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>Total Employees</h3>
+                        <div class="number">155</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Departments</h3>
+                        <div class="number">7</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Roles</h3>
+                        <div class="number">36</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Projects</h3>
+                        <div class="number">7</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Skills</h3>
+                        <div class="number">62</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Clients</h3>
+                        <div class="number">5</div>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">🎯 Key Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <h4>Hierarchy Levels</h4>
+                        <div class="value">7</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">CEO to Associates</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Active Projects</h4>
+                        <div class="value">5</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">In progress</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Completed Projects</h4>
+                        <div class="value">2</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">Historical</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Total Relationships</h4>
+                        <div class="value">1847+</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">Graph edges</p>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">🌟 Notable Employees</h3>
+                <div class="employee-grid">
+                    <div class="employee-card">
+                        <div class="employee-name">Rajesh Sharma</div>
+                        <div class="employee-id">EMP-CEO-001</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> CEO<br>
+                            <strong>Dept:</strong> Executive<br>
+                            <strong>Experience:</strong> 25 years<br>
+                            <strong>Joined:</strong> 2010-01-15
+                        </div>
+                    </div>
+                    <div class="employee-card">
+                        <div class="employee-name">Shubham Chougale</div>
+                        <div class="employee-id">EMP-TECH-010</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> Senior Engineer<br>
+                            <strong>Dept:</strong> Tech<br>
+                            <strong>Experience:</strong> 4.5 years<br>
+                            <strong>Joined:</strong> 2024-12-31
+                            <br><span class="badge special">OrgPulse</span>
+                        </div>
+                    </div>
+                    <div class="employee-card">
+                        <div class="employee-name">Arvind Patel</div>
+                        <div class="employee-id">EMP-TECH-001</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> CTO<br>
+                            <strong>Dept:</strong> Tech<br>
+                            <strong>Experience:</strong> 23 years<br>
+                            <strong>Joined:</strong> 2012-06-01
+                        </div>
+                    </div>
+                    <div class="employee-card">
+                        <div class="employee-name">Sheila Iyer</div>
+                        <div class="employee-id">EMP-HR-001</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> Chief HR Officer<br>
+                            <strong>Dept:</strong> HR<br>
+                            <strong>Experience:</strong> 23 years<br>
+                            <strong>Joined:</strong> 2012-07-01
+                        </div>
+                    </div>
+                    <div class="employee-card">
+                        <div class="employee-name">Sudhir Verma</div>
+                        <div class="employee-id">EMP-FIN-001</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> CFO<br>
+                            <strong>Dept:</strong> Finance<br>
+                            <strong>Experience:</strong> 24 years<br>
+                            <strong>Joined:</strong> 2011-06-01
+                        </div>
+                    </div>
+                    <div class="employee-card">
+                        <div class="employee-name">Karan Bhatnagar</div>
+                        <div class="employee-id">EMP-SAL-001</div>
+                        <div class="employee-info">
+                            <strong>Role:</strong> Sales Head<br>
+                            <strong>Dept:</strong> Sales<br>
+                            <strong>Experience:</strong> 21 years<br>
+                            <strong>Joined:</strong> 2013-08-15
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ORGANIZATION STRUCTURE TAB -->
+            <section id="org-structure" class="section">
+                <h2>🏛️ Organization Structure</h2>
+
+                <div class="org-chart">
+CEO (Rajesh Sharma - EMP-CEO-001)
+├── CTO (Arvind Patel - EMP-TECH-001) - Tech Dept
+│   ├── Tech Heads (2)
+│   │   ├── Priya Verma - EMP-TECH-002
+│   │   └── Vikram Singh - EMP-TECH-003
+│   ├── Product Managers (6)
+│   │   ├── Ananya Gupta, Ashok Desai, Kavya Reddy
+│   │   ├── Rohit Nair, Shreya Singh, Nikhil Joshi
+│   ├── Senior Engineers (15)
+│   │   ├── Shubham Chougale (EMP-TECH-010) ⭐
+│   │   ├── Mohan Rao, Divya Iyer, ...
+│   └── Engineers (20) + Associates (16)
+│
+├── CHO (Sheila Iyer - EMP-HR-001) - HR Dept
+│   ├── HR Head (Vikram Desai - EMP-HR-002)
+│   ├── HR Managers (2)
+│   ├── HR Executives (4)
+│   └── HR Associates (2)
+│
+├── CFO (Sudhir Verma - EMP-FIN-001) - Finance Dept
+│   ├── Finance Head (Anjali Saxena - EMP-FIN-002)
+│   ├── Finance Managers (2)
+│   ├── Financial Analysts (5)
+│   └── Finance Associates (3)
+│
+├── Sales Head (Karan Bhatnagar - EMP-SAL-001) - Sales Dept
+│   ├── Sales Managers (4)
+│   ├── Account Executives (10)
+│   └── Sales Associates (5)
+│
+├── Marketing Head (Shreya Patel - EMP-MKT-001) - Marketing Dept
+│   ├── Marketing Managers (3)
+│   ├── Marketing Executives (8)
+│   └── Marketing Associates (3)
+│
+└── Delivery Heads (2) - Delivery Dept
+    ├── Satish Rao & Meena Yadav
+    ├── Project Managers (5)
+    ├── Senior Analysts (10)
+    ├── Analysts (12)
+    └── Associates (6)
+                </div>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">📊 Department Breakdown</h3>
+                <table class="hierarchy-table">
+                    <thead>
+                        <tr>
+                            <th>Department</th>
+                            <th>Head</th>
+                            <th>Headcount</th>
+                            <th>Key Roles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Tech</strong></td>
+                            <td>Arvind Patel (CTO)</td>
+                            <td><span class="role-level">60</span></td>
+                            <td>Tech Leads, Senior Engineers, Engineers, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Delivery</strong></td>
+                            <td>Satish Rao & Meena Yadav</td>
+                            <td><span class="role-level">35</span></td>
+                            <td>Project Managers, Senior Analysts, Analysts, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sales</strong></td>
+                            <td>Karan Bhatnagar</td>
+                            <td><span class="role-level">20</span></td>
+                            <td>Sales Managers, Account Executives, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Marketing</strong></td>
+                            <td>Shreya Patel</td>
+                            <td><span class="role-level">15</span></td>
+                            <td>Marketing Managers, Executives, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>HR</strong></td>
+                            <td>Sheila Iyer (CHO)</td>
+                            <td><span class="role-level">10</span></td>
+                            <td>HR Head, Managers, Executives, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Finance</strong></td>
+                            <td>Sudhir Verma (CFO)</td>
+                            <td><span class="role-level">12</span></td>
+                            <td>Finance Head, Managers, Analysts, Associates</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Executive</strong></td>
+                            <td>Rajesh Sharma (CEO)</td>
+                            <td><span class="role-level">3</span></td>
+                            <td>CEO, VPs</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- EMPLOYEES TAB -->
+            <section id="employees" class="section">
+                <h2>👥 All Employees by Department</h2>
+
+                <!-- Tech Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>🔧 Tech Department</h3>
+                        <span class="count">60 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Arvind Patel</div>
+                            <div class="employee-id">EMP-TECH-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> CTO<br>
+                                <strong>Level:</strong> <span class="role-level">7</span><br>
+                                <strong>Experience:</strong> 23 years org<br>
+                                <strong>Email:</strong> arvind.patel@coditas.com
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name">Priya Verma</div>
+                            <div class="employee-id">EMP-TECH-002</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Tech Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 11 years org<br>
+                                <strong>Email:</strong> priya.verma@coditas.com
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name">Vikram Singh</div>
+                            <div class="employee-id">EMP-TECH-003</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Tech Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 12 years org<br>
+                                <strong>Email:</strong> vikram.singh@coditas.com
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name">Ananya Gupta</div>
+                            <div class="employee-id">EMP-TECH-004</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Product Manager<br>
+                                <strong>Level:</strong> <span class="role-level">5</span><br>
+                                <strong>Experience:</strong> 9 years org<br>
+                                <strong>Email:</strong> ananya.gupta@coditas.com
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name badge special">⭐ Shubham Chougale</div>
+                            <div class="employee-id">EMP-TECH-010</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Senior Engineer<br>
+                                <strong>Level:</strong> <span class="role-level">4</span><br>
+                                <strong>DOB:</strong> 1997-06-15<br>
+                                <strong>Joined:</strong> 2024-12-31<br>
+                                <strong>Experience:</strong> 4.5 years<br>
+                                <strong>Projects:</strong> OrgPulse<br>
+                                <strong>Skills:</strong> Python(expert), Neo4j(intermediate), LangChain(intermediate), FastAPI(intermediate), React(beginner)<br>
+                                <strong>Email:</strong> shubham.morya@coditas.com
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name">Mohan Rao</div>
+                            <div class="employee-id">EMP-TECH-011</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Senior Engineer<br>
+                                <strong>Level:</strong> <span class="role-level">4</span><br>
+                                <strong>Experience:</strong> 11 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 54 more employees in Tech Department</strong> (Senior Engineers, Engineers, Associate Engineers)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Delivery Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>📦 Delivery Department</h3>
+                        <span class="count">35 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Satish Rao</div>
+                            <div class="employee-id">EMP-DEL-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Delivery Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 12 years org
+                            </div>
+                        </div>
+                        <div class="employee-card">
+                            <div class="employee-name">Meena Yadav</div>
+                            <div class="employee-id">EMP-DEL-002</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Delivery Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 11 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 33 more employees</strong> (PMs, Senior Analysts, Analysts, Associates)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Sales Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>💼 Sales Department</h3>
+                        <span class="count">20 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Karan Bhatnagar</div>
+                            <div class="employee-id">EMP-SAL-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Sales Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 12 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 19 more employees</strong> (Sales Managers, Account Executives, Associates)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Marketing Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>📢 Marketing Department</h3>
+                        <span class="count">15 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Shreya Patel</div>
+                            <div class="employee-id">EMP-MKT-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Marketing Head<br>
+                                <strong>Level:</strong> <span class="role-level">6</span><br>
+                                <strong>Experience:</strong> 11 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 14 more employees</strong> (Marketing Managers, Executives, Associates)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- HR Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>👨‍💼 HR Department</h3>
+                        <span class="count">10 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Sheila Iyer</div>
+                            <div class="employee-id">EMP-HR-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Chief HR Officer<br>
+                                <strong>Level:</strong> <span class="role-level">7</span><br>
+                                <strong>Experience:</strong> 13 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 9 more employees</strong> (HR Head, Managers, Executives, Associates)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Finance Department -->
+                <div class="department-section">
+                    <div class="department-header">
+                        <h3>💰 Finance Department</h3>
+                        <span class="count">12 employees</span>
+                    </div>
+                    <div class="employee-grid">
+                        <div class="employee-card">
+                            <div class="employee-name">Sudhir Verma</div>
+                            <div class="employee-id">EMP-FIN-001</div>
+                            <div class="employee-info">
+                                <strong>Role:</strong> Chief Financial Officer<br>
+                                <strong>Level:</strong> <span class="role-level">7</span><br>
+                                <strong>Experience:</strong> 14 years org
+                            </div>
+                        </div>
+                        <p style="grid-column: 1 / -1; color: #666; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>+ 11 more employees</strong> (Finance Head, Managers, Analysts, Associates)
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROJECTS TAB -->
+            <section id="projects" class="section">
+                <h2>📋 Projects</h2>
+
+                <div class="project-grid">
+                    <div class="project-card active">
+                        <div class="project-header">
+                            <div class="project-name">NeuraVault</div>
+                            <span class="project-status active">Active</span>
+                        </div>
+                        <div class="project-desc">
+                            Advanced neural network knowledge vault for enterprise clients. Flagship project combining AI and knowledge graphs.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Client<br>
+                            <strong>Client:</strong> TechVentures Inc<br>
+                            <strong>Team Size:</strong> 35 members<br>
+                            <strong>Started:</strong> 2023-01-15
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Python</span>
+                            <span class="tech-tag">LangChain</span>
+                            <span class="tech-tag">Neo4j</span>
+                            <span class="tech-tag">FastAPI</span>
+                            <span class="tech-tag">React</span>
+                            <span class="tech-tag">AWS</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card active">
+                        <div class="project-header">
+                            <div class="project-name">SentinelAI</div>
+                            <span class="project-status active">Active</span>
+                        </div>
+                        <div class="project-desc">
+                            Security threat detection using AI and machine learning. Real-time monitoring and alerting system.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Client<br>
+                            <strong>Client:</strong> SecureBank AG<br>
+                            <strong>Team Size:</strong> 12 members<br>
+                            <strong>Started:</strong> 2023-06-01
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Python</span>
+                            <span class="tech-tag">OpenAI</span>
+                            <span class="tech-tag">Pinecone</span>
+                            <span class="tech-tag">Node.js</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card active">
+                        <div class="project-header">
+                            <div class="project-name">OrgPulse</div>
+                            <span class="project-status active">Active</span>
+                        </div>
+                        <div class="project-desc">
+                            Internal organizational knowledge hub and employee collaboration platform. This very project!
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Internal<br>
+                            <strong>Team Size:</strong> 8 members<br>
+                            <strong>Started:</strong> 2024-08-01
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Neo4j</span>
+                            <span class="tech-tag">LangChain</span>
+                            <span class="tech-tag">React</span>
+                            <span class="tech-tag">FastAPI</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card active">
+                        <div class="project-header">
+                            <div class="project-name">CipherSec</div>
+                            <span class="project-status active">Active</span>
+                        </div>
+                        <div class="project-desc">
+                            Cybersecurity infrastructure and monitoring solution. Cloud-native security platform.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Client<br>
+                            <strong>Client:</strong> MediCare Solutions<br>
+                            <strong>Team Size:</strong> 9 members<br>
+                            <strong>Started:</strong> 2023-09-01
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Python</span>
+                            <span class="tech-tag">Docker</span>
+                            <span class="tech-tag">Kubernetes</span>
+                            <span class="tech-tag">AWS</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card completed">
+                        <div class="project-header">
+                            <div class="project-name">DataBridge</div>
+                            <span class="project-status completed">Completed</span>
+                        </div>
+                        <div class="project-desc">
+                            Enterprise data pipeline and ETL solution for data integration and transformation.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Client<br>
+                            <strong>Client:</strong> DataInsights Corp<br>
+                            <strong>Team Size:</strong> 10 members<br>
+                            <strong>Duration:</strong> 2022-03-01 to 2023-12-31
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Spark</span>
+                            <span class="tech-tag">Airflow</span>
+                            <span class="tech-tag">dbt</span>
+                            <span class="tech-tag">Snowflake</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card completed">
+                        <div class="project-header">
+                            <div class="project-name">MarketLens</div>
+                            <span class="project-status completed">Completed</span>
+                        </div>
+                        <div class="project-desc">
+                            Market analytics and business intelligence platform for retail insights.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Client<br>
+                            <strong>Client:</strong> RetailGlobal Ltd<br>
+                            <strong>Team Size:</strong> 6 members<br>
+                            <strong>Duration:</strong> 2023-02-01 to 2023-10-31
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Python</span>
+                            <span class="tech-tag">Tableau</span>
+                            <span class="tech-tag">FastAPI</span>
+                        </div>
+                    </div>
+
+                    <div class="project-card onhold">
+                        <div class="project-header">
+                            <div class="project-name">TalentFlow</div>
+                            <span class="project-status onhold">On-Hold</span>
+                        </div>
+                        <div class="project-desc">
+                            Internal talent management and HR workflow system. Currently on hold pending resources.
+                        </div>
+                        <div class="project-meta">
+                            <strong>Type:</strong> Internal<br>
+                            <strong>Team Size:</strong> 4 members<br>
+                            <strong>Started:</strong> 2024-01-15
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">React</span>
+                            <span class="tech-tag">Node.js</span>
+                            <span class="tech-tag">PostgreSQL</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SKILLS TAB -->
+            <section id="skills" class="section">
+                <h2>🎯 Skills Taxonomy</h2>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">💻 Technical Skills (40)</h3>
+                <div class="skill-grid">
+                    <div class="skill-group">
+                        <h4>Languages</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Python</span>
+                            <span class="skill-item">Java</span>
+                            <span class="skill-item">Go</span>
+                            <span class="skill-item">C++</span>
+                            <span class="skill-item">JavaScript</span>
+                            <span class="skill-item">TypeScript</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Frontend</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">React</span>
+                            <span class="skill-item">Vue.js</span>
+                            <span class="skill-item">Angular</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Backend & APIs</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Node.js</span>
+                            <span class="skill-item">FastAPI</span>
+                            <span class="skill-item">Django</span>
+                            <span class="skill-item">Spring Boot</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Databases</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">PostgreSQL</span>
+                            <span class="skill-item">MongoDB</span>
+                            <span class="skill-item">Neo4j</span>
+                            <span class="skill-item">MySQL</span>
+                            <span class="skill-item">Redis</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Big Data & Analytics</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Spark</span>
+                            <span class="skill-item">Airflow</span>
+                            <span class="skill-item">Kafka</span>
+                            <span class="skill-item">Elasticsearch</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Cloud & DevOps</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">AWS</span>
+                            <span class="skill-item">GCP</span>
+                            <span class="skill-item">Azure</span>
+                            <span class="skill-item">Docker</span>
+                            <span class="skill-item">Kubernetes</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>AI & ML</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">LangChain</span>
+                            <span class="skill-item">OpenAI API</span>
+                            <span class="skill-item">Groq</span>
+                            <span class="skill-item">ML/DL</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Data Tools</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">dbt</span>
+                            <span class="skill-item">Tableau</span>
+                            <span class="skill-item">Snowflake</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">🤝 Soft Skills (10)</h3>
+                <div class="skill-grid">
+                    <div class="skill-group">
+                        <h4>Management & Leadership</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Leadership</span>
+                            <span class="skill-item">Project Management</span>
+                            <span class="skill-item">Team Management</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Communication</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Communication</span>
+                            <span class="skill-item">Presentation</span>
+                            <span class="skill-item">Negotiation</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Problem Solving</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Problem Solving</span>
+                            <span class="skill-item">Critical Thinking</span>
+                            <span class="skill-item">Adaptability</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Collaboration</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Teamwork</span>
+                            <span class="skill-item">Creativity</span>
+                            <span class="skill-item">Time Management</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">🌍 Domain Skills (12)</h3>
+                <div class="skill-grid">
+                    <div class="skill-group">
+                        <h4>Verticals</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">FinTech</span>
+                            <span class="skill-item">Healthcare IT</span>
+                            <span class="skill-item">E-commerce</span>
+                            <span class="skill-item">Banking</span>
+                            <span class="skill-item">Insurance</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-group">
+                        <h4>Domains</h4>
+                        <div class="skill-list">
+                            <span class="skill-item">Manufacturing</span>
+                            <span class="skill-item">Retail</span>
+                            <span class="skill-item">SaaS</span>
+                            <span class="skill-item">AI/ML</span>
+                            <span class="skill-item">Data Analytics</span>
+                            <span class="skill-item">Cloud/DevOps</span>
+                            <span class="skill-item">Security</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CLIENTS TAB -->
+            <section id="clients" class="section">
+                <h2>🤝 Client Organizations</h2>
+
+                <div class="client-grid">
+                    <div class="client-card">
+                        <div class="client-name">TechVentures Inc</div>
+                        <div class="client-info">
+                            <strong>Industry:</strong> Venture Capital<br>
+                            <strong>Country:</strong> United States<br>
+                            <strong>Projects:</strong> NeuraVault<br>
+                            <strong>Status:</strong> Active
+                        </div>
+                    </div>
+
+                    <div class="client-card">
+                        <div class="client-name">SecureBank AG</div>
+                        <div class="client-info">
+                            <strong>Industry:</strong> Banking<br>
+                            <strong>Country:</strong> Switzerland<br>
+                            <strong>Projects:</strong> SentinelAI<br>
+                            <strong>Status:</strong> Active
+                        </div>
+                    </div>
+
+                    <div class="client-card">
+                        <div class="client-name">RetailGlobal Ltd</div>
+                        <div class="client-info">
+                            <strong>Industry:</strong> Retail<br>
+                            <strong>Country:</strong> United Kingdom<br>
+                            <strong>Projects:</strong> MarketLens<br>
+                            <strong>Status:</strong> Completed
+                        </div>
+                    </div>
+
+                    <div class="client-card">
+                        <div class="client-name">MediCare Solutions</div>
+                        <div class="client-info">
+                            <strong>Industry:</strong> Healthcare<br>
+                            <strong>Country:</strong> Canada<br>
+                            <strong>Projects:</strong> CipherSec<br>
+                            <strong>Status:</strong> Active
+                        </div>
+                    </div>
+
+                    <div class="client-card">
+                        <div class="client-name">DataInsights Corp</div>
+                        <div class="client-info">
+                            <strong>Industry:</strong> Analytics<br>
+                            <strong>Country:</strong> United States<br>
+                            <strong>Projects:</strong> DataBridge<br>
+                            <strong>Status:</strong> Completed
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HIERARCHY TAB -->
+            <section id="hierarchy" class="section">
+                <h2>📈 Role Hierarchy & Levels</h2>
+
+                <table class="hierarchy-table">
+                    <thead>
+                        <tr>
+                            <th>Level</th>
+                            <th>Role</th>
+                            <th>Department</th>
+                            <th>Responsibilities</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="role-level">7</span></td>
+                            <td><strong>CEO</strong></td>
+                            <td>Executive</td>
+                            <td>Overall organization leadership and strategy</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">7</span></td>
+                            <td><strong>CTO</strong></td>
+                            <td>Tech</td>
+                            <td>Chief Technology Officer - Tech strategy and vision</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">7</span></td>
+                            <td><strong>CFO</strong></td>
+                            <td>Finance</td>
+                            <td>Chief Financial Officer - Financial management</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">7</span></td>
+                            <td><strong>CHO</strong></td>
+                            <td>HR</td>
+                            <td>Chief Human Resources Officer - HR strategy</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">6</span></td>
+                            <td>Tech Head / Department Head</td>
+                            <td>All departments</td>
+                            <td>Department leadership and operations</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">6</span></td>
+                            <td>Principal Engineer</td>
+                            <td>Tech</td>
+                            <td>Senior technical architect and advisor</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">5</span></td>
+                            <td>Engineering Manager / PM / Manager</td>
+                            <td>All departments</td>
+                            <td>Team management and project leadership</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">5</span></td>
+                            <td>Tech Lead</td>
+                            <td>Tech</td>
+                            <td>Technical leadership and mentoring</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">4</span></td>
+                            <td>Senior Engineer / Senior Analyst</td>
+                            <td>Tech / Delivery</td>
+                            <td>Experienced contributor, mentoring juniors</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">4</span></td>
+                            <td>Account Executive</td>
+                            <td>Sales</td>
+                            <td>Client account management and sales</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">3</span></td>
+                            <td>Engineer / Analyst</td>
+                            <td>Tech / Delivery</td>
+                            <td>Core technical/analytical work</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">3</span></td>
+                            <td>Financial Analyst</td>
+                            <td>Finance</td>
+                            <td>Financial analysis and reporting</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">2</span></td>
+                            <td>Associate Engineer / Associate Analyst</td>
+                            <td>Tech / Delivery</td>
+                            <td>Junior contributor, learning and development</td>
+                        </tr>
+                        <tr>
+                            <td><span class="role-level">2</span></td>
+                            <td>Associate / Sales Associate</td>
+                            <td>All departments</td>
+                            <td>Entry-level operational work</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 style="color: #667eea; margin-top: 40px; margin-bottom: 20px;">📊 Hierarchy Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <h4>Total Roles</h4>
+                        <div class="value">36</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">Across 7 levels</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>C-Suite</h4>
+                        <div class="value">4</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">CEO, CTO, CFO, CHO</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Department Heads</h4>
+                        <div class="value">8</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">One per dept + alternates</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Managers/Leads</h4>
+                        <div class="value">40+</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">Levels 4-6</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Individual Contributors</h4>
+                        <div class="value">100+</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">Levels 1-3</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Reporting Lines</h4>
+                        <div class="value">150+</div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">REPORTS_TO edges</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="footer">
+            <p>🚀 Org Knowledge Hub - Step 1: Complete Data Visualization</p>
+            <p style="margin-top: 10px; color: #999; font-size: 0.85em;">
+                155 Employees | 7 Departments | 36 Roles | 7 Projects | 62 Skills | 5 Clients | 1,847+ Relationships
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Deactivate all buttons
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected section
+            document.getElementById(tabName).classList.add('active');
+
+            // Activate clicked button
+            event.target.classList.add('active');
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+    </script>
+</body>
+</html>

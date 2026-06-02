@@ -1,0 +1,123 @@
+# ============================================================================
+# Org Knowledge Hub .gitignore
+# ============================================================================
+
+# ---- ENVIRONMENT & SECRETS ----
+# NEVER commit .env files with API keys, database credentials, or JWT secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# ---- PYTHON (Backend) ----
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE Python artifacts
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- NODE.JS (Frontend) ----
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+.next/
+
+# Cache
+.npm/
+.yarn/cache/
+
+# IDE Node artifacts
+.eslintcache
+
+# ---- IDE & EDITOR ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Vim
+.vim/
+*.vim
+Session.vim
+
+# JetBrains
+*.iml
+*.iws
+*.ipr
+.gradle/
+
+# ---- LOGS ----
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ---- DOCKER ----
+.dockerignore
+docker-compose.override.yml
+
+# ---- DATABASE ----
+# Neo4j data (local dev only)
+neo4j_data/
+neo4j-data/
+
+# ---- TEMPORARY FILES ----
+*.tmp
+*.temp
+.tmp/
+tmp/
+temp/
+
+# ---- OS ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ---- CLAUDE CODE ----
+# Keep Claude Code configuration committed, exclude local overrides
+# .claude/settings.json ✅ KEEP (team-wide config)
+# .claude/skills/ ✅ KEEP (team-wide skills)
+# .claude/rules/ ✅ KEEP (team-wide rules)
+# .claude/settings.local.json ❌ IGNORE (personal settings)
+.claude/settings.local.json
+.claude/transcripts/
+.claude/plans/
+.claude/worktrees/
+
+# ---- MISC ----
+.turbo/
+.nx/
+dist-ssr/
+*.local

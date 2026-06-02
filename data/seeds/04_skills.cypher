@@ -1,0 +1,67 @@
+// Technical Skills
+MERGE (s:Skill {skill_id: 'SKILL-001', name: 'Python', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-002', name: 'Java', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-003', name: 'Go', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-004', name: 'C++', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-005', name: 'JavaScript', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-006', name: 'TypeScript', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-007', name: 'React', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-008', name: 'Vue.js', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-009', name: 'Angular', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-010', name: 'Node.js', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-011', name: 'FastAPI', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-012', name: 'Django', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-013', name: 'Spring Boot', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-014', name: 'PostgreSQL', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-015', name: 'MongoDB', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-016', name: 'Neo4j', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-017', name: 'MySQL', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-018', name: 'Redis', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-019', name: 'Elasticsearch', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-020', name: 'Docker', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-021', name: 'Kubernetes', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-022', name: 'AWS', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-023', name: 'GCP', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-024', name: 'Azure', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-025', name: 'Apache Spark', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-026', name: 'Apache Airflow', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-027', name: 'Kafka', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-028', name: 'RabbitMQ', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-029', name: 'Git', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-030', name: 'Jenkins', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-031', name: 'GitHub Actions', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-032', name: 'LangChain', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-033', name: 'OpenAI API', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-034', name: 'Groq', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-035', name: 'Pinecone', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-036', name: 'dbt', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-037', name: 'Tableau', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-038', name: 'Snowflake', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-039', name: 'Machine Learning', category: 'Technical'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-040', name: 'Deep Learning', category: 'Technical'}) SET s.created_at = datetime();
+
+// Soft Skills
+MERGE (s:Skill {skill_id: 'SKILL-041', name: 'Leadership', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-042', name: 'Communication', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-043', name: 'Problem Solving', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-044', name: 'Teamwork', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-045', name: 'Project Management', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-046', name: 'Negotiation', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-047', name: 'Time Management', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-048', name: 'Adaptability', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-049', name: 'Creativity', category: 'Soft'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-050', name: 'Critical Thinking', category: 'Soft'}) SET s.created_at = datetime();
+
+// Domain Skills
+MERGE (s:Skill {skill_id: 'SKILL-051', name: 'FinTech', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-052', name: 'Healthcare IT', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-053', name: 'E-commerce', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-054', name: 'Banking', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-055', name: 'Insurance', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-056', name: 'Manufacturing', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-057', name: 'Retail', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-058', name: 'SaaS', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-059', name: 'AI/ML', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-060', name: 'Data Analytics', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-061', name: 'Cloud Computing', category: 'Domain'}) SET s.created_at = datetime();
+MERGE (s:Skill {skill_id: 'SKILL-062', name: 'Cybersecurity', category: 'Domain'}) SET s.created_at = datetime();

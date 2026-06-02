@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../frontend",
+      "../data"
+    ],
+    "deny": [
+      "Read(./**/__pycache__/**)",
+      "Read(./**/.venv/**)",
+      "Read(./**/venv/**)",
+      "Read(./**/*.pyc)",
+      "Read(./**/.pytest_cache/**)"
+    ]
+  }
+}

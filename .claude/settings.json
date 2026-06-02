@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./**/__pycache__/**)",
+      "Read(./**/.venv/**)",
+      "Read(./**/venv/**)",
+      "Read(./**/*.pyc)",
+      "Read(./**/node_modules/**)",
+      "Read(./**/dist/**)",
+      "Read(./**/build/**)",
+      "Read(./**/.pytest_cache/**)",
+      "Read(./**/.next/**)"
+    ]
+  },
+  "worktree": {
+    "sparsePaths": [
+      ".claude",
+      "backend",
+      "frontend",
+      "docker",
+      "data"
+    ],
+    "symlinkDirectories": [
+      "node_modules"
+    ]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true
+  }
+}
