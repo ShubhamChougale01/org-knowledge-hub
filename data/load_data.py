@@ -123,6 +123,8 @@ def main():
 
     print(f"📋 Found {len(seed_files)} seed file(s):\n")
 
+    # Filter and sort seed files to ensure correct execution order
+    # (load_data.py uses sorted() which respects numeric prefix)
     failed_files = []
 
     for seed_file in seed_files:

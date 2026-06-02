@@ -7,3 +7,11 @@ CREATE CONSTRAINT IF NOT EXISTS FOR (s:Skill) REQUIRE s.skill_id IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (c:Certification) REQUIRE c.cert_id IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (cl:Client) REQUIRE cl.client_id IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (ph:PromotionHistory) REQUIRE ph.history_id IS UNIQUE;
+
+// Rating system constraints (added for rule-based rating system v1.0)
+CREATE CONSTRAINT IF NOT EXISTS FOR (rr:RatingRule) REQUIRE rr.rule_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (rt:RatingThreshold) REQUIRE rt.threshold_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (a:Attendance) REQUIRE a.attendance_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (mf:ManagerFeedback) REQUIRE mf.feedback_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (br:BugRatio) REQUIRE br.bug_ratio_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (re:RatingExplanation) REQUIRE re.explanation_id IS UNIQUE;

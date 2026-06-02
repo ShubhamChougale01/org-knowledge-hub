@@ -15,6 +15,7 @@ from models.employee import (
     EmployeeProject,
     EmployeePromotion,
 )
+from models.rating import RatingExplanation, RatingDimensionBreakdown
 from models.auth import UserPayload
 
 log = logging.getLogger(__name__)
@@ -147,3 +148,170 @@ async def get_reporting_chain(employee_id: str, user: UserPayload) -> list[str]:
     if not result:
         return []
     return result.get("chain", [])
+
+
+async def get_rating_explanation(
+    employee_id: str,
+    project_id: str,
+    period: Optional[str],
+    user: UserPayload,
+) -> RatingExplanation:
+    """Get detailed rating explanation with breakdown for employee on project."""
+
+    # Fetch employee name
+    emp_result = run_query_single("""
+        MATCH (e:Employee {employee_id: $emp_id})
+        RETURN e.full_name AS name
+    """, {"emp_id": employee_id})
+
+    if not emp_result:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    employee_name = emp_result.get("name", "Unknown")
+
+    # Fetch project name
+    proj_result = run_query_single("""
+        MATCH (p:Project {project_id: $proj_id})
+        RETURN p.name AS name
+    """, {"proj_id": project_id})
+
+    if not proj_result:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_name = proj_result.get("name", "Unknown")
+
+    # Fetch overall rating and period (if not specified, get latest)
+    if period:
+        rating_result = run_query_single("""
+            MATCH (e:Employee {employee_id: $emp_id})-[r:HAS_PROJECT_RATING {period: $period}]->(p:Project {project_id: $proj_id})
+            RETURN r.overall_stars AS overall_stars,
+                   r.period AS period,
+                   r.calculation_date AS calculation_date,
+                   r.calculation_method AS calculation_method
+        """, {"emp_id": employee_id, "proj_id": project_id, "period": period})
+    else:
+        rating_result = run_query_single("""
+            MATCH (e:Employee {employee_id: $emp_id})-[r:HAS_PROJECT_RATING]->(p:Project {project_id: $proj_id})
+            RETURN r.overall_stars AS overall_stars,
+                   r.period AS period,
+                   r.calculation_date AS calculation_date,
+                   r.calculation_method AS calculation_method
+            ORDER BY r.calculation_date DESC
+            LIMIT 1
+        """, {"emp_id": employee_id, "proj_id": project_id})
+
+    if not rating_result:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No rating found for employee {employee_id} on project {project_id}"
+        )
+
+    overall_stars = rating_result.get("overall_stars", 3.0)
+    period = rating_result.get("period", "Unknown")
+    calculation_date = rating_result.get("calculation_date")
+    calculation_method = rating_result.get("calculation_method", "rules-v1.0")
+
+    # Fetch rating breakdown (all dimensions)
+    breakdown_results = run_query("""
+        MATCH (e:Employee {employee_id: $emp_id})-[r:HAS_RATING_BREAKDOWN {period: $period}]->(p:Project {project_id: $proj_id})
+        RETURN r.dimension AS dimension,
+               r.dimension_stars AS dimension_stars,
+               r.rule_id AS rule_id,
+               r.metric_value AS metric_value,
+               r.metric_type AS metric_type,
+               r.weight AS weight,
+               r.weighted_contribution AS weighted_contribution
+        ORDER BY r.weight DESC
+    """, {"emp_id": employee_id, "proj_id": project_id, "period": period})
+
+    if not breakdown_results:
+        raise HTTPException(
+            status_code=404,
+            detail="No rating breakdown found (database may be incomplete)"
+        )
+
+    # Map dimension to rule name and description
+    dimension_info = {
+        "PERFORMANCE": {
+            "rule_name": "Task Completion",
+            "description": "Percentage of assigned tasks completed on time"
+        },
+        "RELIABILITY": {
+            "rule_name": "Punctuality & Attendance",
+            "description": "Combined late days + absences (lower is better)"
+        },
+        "TEAMWORK": {
+            "rule_name": "Behavior & Collaboration",
+            "description": "Manager feedback on teamwork and communication"
+        },
+        "DEVELOPMENT": {
+            "rule_name": "Learning & Growth",
+            "description": "Certifications and new skills acquired"
+        },
+        "CRAFTSMANSHIP": {
+            "rule_name": "Work Quality",
+            "description": "Bug ratio (reported bugs / tasks completed)"
+        },
+    }
+
+    # Format metric labels based on metric type
+    breakdown = []
+    for result in breakdown_results:
+        dimension = result.get("dimension", "UNKNOWN")
+        info = dimension_info.get(dimension, {
+            "rule_name": dimension,
+            "description": "Unknown rating dimension"
+        })
+
+        # Format metric label based on metric type
+        metric_type = result.get("metric_type", "unknown")
+        metric_value = result.get("metric_value", 0)
+
+        if metric_type == "percentage":
+            metric_label = f"{metric_value*100:.0f}% completion"
+        elif metric_type == "days":
+            metric_label = f"{int(metric_value)} penalty days"
+        elif metric_type == "score":
+            metric_label = f"Score: {int(metric_value)}/100"
+        elif metric_type == "count":
+            metric_label = f"{int(metric_value)} certifications/skills"
+        elif metric_type == "ratio":
+            metric_label = f"{metric_value*100:.1f}% bug ratio"
+        else:
+            metric_label = str(metric_value)
+
+        breakdown.append(RatingDimensionBreakdown(
+            dimension=dimension,
+            rule_name=info["rule_name"],
+            description=info["description"],
+            dimension_stars=float(result.get("dimension_stars", 3)),
+            metric_value=float(result.get("metric_value", 0)),
+            metric_label=metric_label,
+            metric_type=metric_type,
+            weight=float(result.get("weight", 0.2)),
+            weighted_contribution=float(result.get("weighted_contribution", 0))
+        ))
+
+    # Fetch RatingExplanation node for comments
+    explanation_result = run_query_single("""
+        MATCH (re:RatingExplanation {employee_id: $emp_id, project_id: $proj_id, period: $period})
+        RETURN re.manager_comment AS manager_comment,
+               re.system_comment AS system_comment
+    """, {"emp_id": employee_id, "proj_id": project_id, "period": period})
+
+    manager_comment = explanation_result.get("manager_comment") if explanation_result else None
+    system_comment = explanation_result.get("system_comment") if explanation_result else None
+
+    return RatingExplanation(
+        employee_id=employee_id,
+        employee_name=employee_name,
+        project_id=project_id,
+        project_name=project_name,
+        period=period,
+        overall_stars=overall_stars,
+        breakdown=breakdown,
+        calculation_date=calculation_date,
+        calculation_method=calculation_method,
+        manager_comment=manager_comment,
+        system_comment=system_comment
+    )

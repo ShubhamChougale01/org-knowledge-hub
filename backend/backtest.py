@@ -151,6 +151,72 @@ async def test_pii_masking():
         check("L4 user does not see dob", row.get("dob") is None)
 
 
+async def test_rating_breakdown():
+    # Test 1: Rating rules exist
+    rules = graph.run_query("""
+        MATCH (rule:RatingRule {active: true})
+        RETURN count(rule) AS n
+    """)
+    check("At least 5 active rating rules exist",
+          len(rules) > 0 and rules[0].get("n", 0) >= 5,
+          f"got {rules[0].get('n', 0) if rules else 0}")
+
+    # Test 2: Rating thresholds exist
+    thresholds = graph.run_query("""
+        MATCH (rule:RatingRule)-[:HAS_THRESHOLD]->(t:RatingThreshold)
+        RETURN count(t) AS n
+    """)
+    check("Rating thresholds created for all rules",
+          len(thresholds) > 0 and thresholds[0].get("n", 0) >= 20,
+          f"got {thresholds[0].get('n', 0) if thresholds else 0}")
+
+    # Test 3: Project ratings exist (after seeding)
+    project_ratings = graph.run_query("""
+        MATCH ()-[r:HAS_PROJECT_RATING {calculation_method: 'rules-v1.0'}]->()
+        RETURN count(r) AS n
+    """)
+    check("Project ratings with breakdown exist",
+          len(project_ratings) > 0 and project_ratings[0].get("n", 0) > 0,
+          f"got {project_ratings[0].get('n', 0) if project_ratings else 0}")
+
+    # Test 4: Rating breakdown relationships exist
+    breakdowns = graph.run_query("""
+        MATCH ()-[r:HAS_RATING_BREAKDOWN]->()
+        RETURN count(r) AS n
+    """)
+    check("Rating breakdown relationships exist",
+          len(breakdowns) > 0 and breakdowns[0].get("n", 0) > 0,
+          f"got {breakdowns[0].get('n', 0) if breakdowns else 0}")
+
+    # Test 5: Get rating explanation for known employee
+    try:
+        user = _make_user("L4")
+        # Find an employee with a rating
+        emp_rating = graph.run_query("""
+            MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {name: 'NeuraVault'})
+            RETURN e.employee_id AS emp_id, p.project_id AS proj_id, r.period AS period
+            LIMIT 1
+        """)
+
+        if emp_rating:
+            emp_id = emp_rating[0].get("emp_id")
+            proj_id = emp_rating[0].get("proj_id")
+            if emp_id and proj_id:
+                explanation = await employee_controller.get_rating_explanation(
+                    emp_id, proj_id, None, user
+                )
+                check("Rating explanation endpoint works",
+                      explanation is not None)
+                check("Explanation has breakdown with 5 dimensions",
+                      len(explanation.breakdown) >= 5,
+                      f"got {len(explanation.breakdown)} dimensions")
+                check("Overall stars calculated",
+                      explanation.overall_stars >= 1.0 and explanation.overall_stars <= 5.0,
+                      f"got {explanation.overall_stars}")
+    except Exception as e:
+        check("Rating explanation retrieval", False, str(e))
+
+
 async def test_full_pipeline():
     user = _make_user("L4")
 
@@ -218,6 +284,7 @@ async def main():
     await section("Cypher Generator",     test_cypher_generator)
     await section("Graph Executor",       test_graph_executor)
     await section("PII Masking (RBAC)",   test_pii_masking)
+    await section("Rating Breakdown",     test_rating_breakdown)
     await section("Full Chat Pipeline",   test_full_pipeline)
     await section("Client Controller",    test_client_controller)
     await section("Employee Controller",  test_employee_controller)

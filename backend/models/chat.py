@@ -25,6 +25,7 @@ class CypherValidationResult(BaseModel):
     valid: bool
     cypher: str
     reason: Optional[str] = None
+    params: dict = Field(default_factory=dict)
 
 
 class GraphExecutionResult(BaseModel):

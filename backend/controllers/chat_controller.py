@@ -66,7 +66,7 @@ async def handle_chat(request: ChatRequest, user: UserPayload) -> ChatResponse:
 
     # ─── Tool 2: Execute on Neo4j ────────────────────────────────────
     try:
-        exec_result = await graph_executor.execute(cypher, user.access_level)
+        exec_result = await graph_executor.execute(cypher, user.access_level, cypher_result.params)
     except Exception as e:
         log.error(f"Graph execution crashed: {e}")
         return ChatResponse(
@@ -81,9 +81,9 @@ async def handle_chat(request: ChatRequest, user: UserPayload) -> ChatResponse:
     try:
         answer = await answer_formatter.format_answer(request.query, exec_result, history=history)
     except Exception as e:
-        log.error(f"Answer formatting crashed: {e}")
-        answer = (f"Found {exec_result.row_count} results. "
-                  f"First row: {exec_result.rows[0] if exec_result.rows else 'none'}")
+        log.error(f"Answer formatting crashed: {e}", exc_info=True)
+        answer = ("I found the data but had trouble formatting the response. "
+                  "Please try again or rephrase your question.")
 
     # ─── Save to memory ──────────────────────────────────────────────
     if request.session_id:

@@ -42,21 +42,24 @@ def _pick_ttl(cypher: str) -> int:
 
 
 # ─── Public entry point ──────────────────────────────────────────────────
-async def execute(cypher: str, access_level: str = "L4") -> GraphExecutionResult:
+async def execute(cypher: str, access_level: str = "L4", params: dict | None = None) -> GraphExecutionResult:
     """
     Execute a Cypher query and return rows.
 
     Args:
         cypher: validated Cypher query (must come from cypher_generator)
         access_level: user's RBAC level (used for PII masking and cache key)
+        params: bound parameters for the query (prevents injection in template path)
 
     Returns:
         GraphExecutionResult with rows, row_count, cache info, latency
     """
     start = time.time()
+    _params = params or {}
 
-    # 1. Cache check
-    key = cache.cache_key(cypher, access_level=access_level, namespace="query")
+    # 1. Cache check — key includes params so different values don't collide
+    params_suffix = str(sorted(_params.items())) if _params else ""
+    key = cache.cache_key(cypher + params_suffix, access_level=access_level, namespace="query")
     cached = cache.get(key)
     if cached is not None:
         return GraphExecutionResult(
@@ -69,7 +72,7 @@ async def execute(cypher: str, access_level: str = "L4") -> GraphExecutionResult
 
     # 2. Execute on Neo4j
     try:
-        rows = run_query(cypher)
+        rows = run_query(cypher, _params)
     except Exception as e:
         log.error(f"Neo4j execution failed for: {cypher[:100]}... → {e}")
         raise

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from controllers import employee_controller
 from models.employee import EmployeeResponse, EmployeeDetail
+from models.rating import RatingExplanation
 from models.auth import UserPayload
 from routes.dependencies import get_current_user
 
@@ -42,3 +43,18 @@ async def get_reporting_chain(
 ):
     chain = await employee_controller.get_reporting_chain(employee_id, user)
     return {"employee_id": employee_id, "chain": chain, "levels": len(chain) - 1}
+
+
+@router.get("/{employee_id}/rating-explanation/{project_id}", response_model=RatingExplanation)
+async def get_rating_explanation(
+    employee_id: str,
+    project_id: str,
+    period: Optional[str] = Query(None, description="Period (e.g., '2024-Q1'). Defaults to latest."),
+    user: UserPayload = Depends(get_current_user),
+):
+    return await employee_controller.get_rating_explanation(
+        employee_id=employee_id,
+        project_id=project_id,
+        period=period,
+        user=user
+    )

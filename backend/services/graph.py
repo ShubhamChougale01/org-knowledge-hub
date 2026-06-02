@@ -181,8 +181,8 @@ RELATIONSHIPS:
 - (Project)-[:HAS_SPRINT]->(Sprint)
 - (Sprint)-[:HAS_TASK]->(Task)
 - (Employee)-[:ASSIGNED_TASK {assigned_date}]->(Task)
-- (Employee)-[:HAS_SPRINT_RATING {stars, completion_pct, tasks_completed, tasks_total}]->(Sprint)
-- (Employee)-[:HAS_PROJECT_RATING {stars, completion_pct, tasks_completed, tasks_total}]->(Project)
+- (Employee)-[:HAS_SPRINT_RATING {overall_stars, period}]->(Sprint)
+- (Employee)-[:HAS_PROJECT_RATING {overall_stars, period, calculation_method}]->(Project)
 - (PromotionHistory)-[:IN_DEPARTMENT]->(Department)
 
 AVAILABLE VALUES:

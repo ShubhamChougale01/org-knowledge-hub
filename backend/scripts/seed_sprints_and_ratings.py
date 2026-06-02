@@ -6,7 +6,8 @@ This script:
 2. Creates 15 tasks per sprint (by feature area: Auth, Dashboard, API, Database, etc.)
 3. Assigns tasks to the 35 NeuraVault employees
 4. Varies completion rates to generate a spread of 1-5 star ratings
-5. Stores HAS_SPRINT_RATING and HAS_PROJECT_RATING relationships with computed stars
+5. Uses new RatingCalculator to compute multi-dimensional ratings
+6. Stores HAS_PROJECT_RATING and HAS_RATING_BREAKDOWN relationships with full breakdown
 """
 
 import sys
@@ -18,22 +19,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from neo4j import GraphDatabase
 from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
-
-STARS_THRESHOLD = {
-    1.0: 5,
-    0.8: 4,
-    0.6: 3,
-    0.4: 2,
-}
-
-def calc_stars(completion_pct: float) -> int:
-    for threshold, stars in sorted(STARS_THRESHOLD.items(), reverse=True):
-        if completion_pct >= threshold:
-            return stars
-    return 1
+from services.rating_calculator import RatingCalculator
 
 def seed_sprints_and_ratings():
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    calculator = RatingCalculator(driver)
 
     with driver.session() as session:
         # Clean up previous seed data so re-runs are idempotent
@@ -42,6 +32,10 @@ def seed_sprints_and_ratings():
         session.run("MATCH (t:Task) DETACH DELETE t")
         session.run("""
             MATCH ()-[r:HAS_PROJECT_RATING]->()
+            DELETE r
+        """)
+        session.run("""
+            MATCH ()-[r:HAS_RATING_BREAKDOWN]->()
             DELETE r
         """)
         print("[CLEANUP] Done.")
@@ -158,6 +152,8 @@ def seed_sprints_and_ratings():
                 completed_indices = set(random.sample(range(len(tasks)), tasks_to_complete))
 
                 # Assign all tasks to employee with per-employee completion flag on the relationship
+                # Add period to support RatingCalculator's metric calculation
+                period = f"{start_date.year}-Q{(start_date.month - 1) // 3 + 1}"
                 for i, task in enumerate(tasks):
                     is_completed = i in completed_indices
                     session.run("""
@@ -166,7 +162,8 @@ def seed_sprints_and_ratings():
                         CREATE (e)-[:ASSIGNED_TASK {
                             assigned_date: $assigned_date,
                             completed: $completed,
-                            completed_date: $completed_date
+                            completed_date: $completed_date,
+                            period: $period
                         }]->(t)
                     """, {
                         'emp_id': emp_id,
@@ -174,88 +171,76 @@ def seed_sprints_and_ratings():
                         'assigned_date': start_date.isoformat(),
                         'completed': is_completed,
                         'completed_date': end_date.isoformat() if is_completed else None,
+                        'period': period
                     })
-
-                # Calculate rating
-                stars = calc_stars(completion_rate)
-
-                # Create HAS_SPRINT_RATING relationship
-                session.run("""
-                    MATCH (e:Employee {employee_id: $emp_id})
-                    MATCH (s:Sprint {sprint_id: $sprint_id})
-                    CREATE (e)-[r:HAS_SPRINT_RATING {
-                        stars: $stars,
-                        completion_pct: $completion_pct,
-                        tasks_completed: $tasks_completed,
-                        tasks_total: $tasks_total
-                    }]->(s)
-                """, {
-                    'emp_id': emp_id,
-                    'sprint_id': sprint_id,
-                    'stars': stars,
-                    'completion_pct': round(completion_rate, 2),
-                    'tasks_completed': tasks_to_complete,
-                    'tasks_total': len(tasks),
-                })
 
             print(f"  [OK] Assigned tasks to all {emp_count} employees with varied ratings")
 
-        # Create HAS_PROJECT_RATING (aggregate across sprints)
-        print(f"\n[RATING] Creating project-level ratings...")
+        # Create HAS_PROJECT_RATING using RatingCalculator
+        print(f"\n[RATING] Creating multi-dimensional project-level ratings...")
 
+        # Get NeuraVault project ID
+        result = session.run("MATCH (p:Project {name: 'NeuraVault'}) RETURN p.project_id as project_id")
+        project_id = result.single()['project_id']
+
+        # Get all employees assigned to NeuraVault
         result = session.run("""
-            MATCH (e:Employee)-[sr:HAS_SPRINT_RATING]->(s:Sprint)<-[:HAS_SPRINT]-(p:Project {name: 'NeuraVault'})
-            WITH e, p,
-                 collect(sr.tasks_completed) as completed_list,
-                 collect(sr.tasks_total) as total_list
-            WITH e, p,
-                 reduce(total_completed = 0, x in completed_list | total_completed + x) as total_completed,
-                 reduce(total_tasks = 0, x in total_list | total_tasks + x) as total_tasks
-            RETURN e.employee_id as emp_id, total_completed, total_tasks
+            MATCH (e:Employee)-[:ASSIGNED_TO {is_current: true}]->(p:Project {name: 'NeuraVault'})
+            RETURN e.employee_id as emp_id, e.full_name as emp_name
         """)
+
+        period = "2024-Q1"  # Use same period as sprints
+        ratings_count = 0
 
         for emp_record in result:
             emp_id = emp_record['emp_id']
-            total_completed = emp_record['total_completed']
-            total_tasks = emp_record['total_tasks']
+            emp_name = emp_record['emp_name']
 
-            if total_tasks > 0:
-                completion_pct = total_completed / total_tasks
-                stars = calc_stars(completion_pct)
+            try:
+                # Calculate multi-dimensional rating using RatingCalculator
+                rating_result = calculator.calculate_overall_rating(emp_id, project_id, period)
+                overall_stars = rating_result['overall_stars']
+                breakdown = rating_result['breakdown']
 
-                session.run("""
-                    MATCH (e:Employee {employee_id: $emp_id})
-                    MATCH (p:Project {name: 'NeuraVault'})
-                    MERGE (e)-[r:HAS_PROJECT_RATING]->(p)
-                    SET r.stars = $stars,
-                        r.completion_pct = $completion_pct,
-                        r.tasks_completed = $total_completed,
-                        r.tasks_total = $total_tasks
-                """, {
-                    'emp_id': emp_id,
-                    'stars': stars,
-                    'completion_pct': round(completion_pct, 2),
-                    'total_completed': total_completed,
-                    'total_tasks': total_tasks,
-                })
+                # Store rating and breakdown in Neo4j
+                success = calculator.store_rating_with_breakdown(
+                    employee_id=emp_id,
+                    project_id=project_id,
+                    period=period,
+                    overall_stars=overall_stars,
+                    breakdown=breakdown,
+                    system_comment=f"Auto-generated rating based on {len(breakdown)} dimensions"
+                )
 
-        # Verify
+                if success:
+                    ratings_count += 1
+                    print(f"  ✓ {emp_name}: {overall_stars}★")
+
+            except Exception as e:
+                print(f"  ✗ {emp_name}: Error - {str(e)}")
+
+        # Verify ratings created
         result = session.run("""
-            MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {name: 'NeuraVault'})
-            WITH r.stars as stars, count(e) as count
+            MATCH (e:Employee)-[r:HAS_PROJECT_RATING {period: $period}]->(p:Project {name: 'NeuraVault'})
+            WITH r.overall_stars as stars, count(e) as count
             RETURN stars, count
             ORDER BY stars DESC
-        """)
+        """, period=period)
 
-        print("\n[DONE] Project-level ratings created:")
+        print("\n[DONE] Multi-dimensional ratings created:")
         star_counts = {}
         for record in result:
             stars = record['stars']
             count = record['count']
             star_counts[stars] = count
-            print(f"  {stars} stars: {count} employees")
+            print(f"  {stars}★: {count} employees")
 
-        print(f"\n[SUCCESS] Seeding complete! {sum(star_counts.values())} employees rated on NeuraVault")
+        total_rated = sum(star_counts.values())
+        print(f"\n[SUCCESS] Seeding complete!")
+        print(f"  • Created {len(sprints_data)} sprints with {len(sprints_data) * len(feature_areas)} tasks")
+        print(f"  • Assigned tasks to {employee_count} employees")
+        print(f"  • Generated {total_rated} multi-dimensional ratings with breakdown")
+        print(f"  • Rating dimensions: Task Completion, Punctuality, Behavior, Learning, Quality")
 
     driver.close()
 
