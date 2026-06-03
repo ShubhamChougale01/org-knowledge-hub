@@ -15,7 +15,7 @@ from models.chat import ChatRequest, ChatResponse
 from models.auth import UserPayload
 from tools import cypher_generator, graph_executor, answer_formatter
 from services.langsmith_setup import get_latest_trace_url
-from services import memory
+from services import memory, smalltalk
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,21 @@ async def handle_chat(request: ChatRequest, user: UserPayload) -> ChatResponse:
 
     # ─── Conversation memory ─────────────────────────────────────────
     history = memory.get_history(request.session_id) if request.session_id else []
+
+    # ─── Small-talk short-circuit ────────────────────────────────────
+    # Greetings, thanks, "what can you do?" etc. have no graph query behind them.
+    # Answer them directly so they don't fall through to the "invalid query" error.
+    smalltalk_reply = smalltalk.detect(request.query)
+    if smalltalk_reply is not None:
+        if request.session_id:
+            memory.save(request.session_id, request.query, smalltalk_reply)
+        return ChatResponse(
+            answer=smalltalk_reply,
+            cypher_used="",
+            execution_ms=int((time.time() - pipeline_start) * 1000),
+            row_count=0,
+            success=True,
+        )
 
     # ─── Tool 1: Generate Cypher ─────────────────────────────────────
     try:

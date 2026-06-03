@@ -165,6 +165,7 @@ NODES:
 - Certification {cert_id, name, issuer, issued_date, expiry_date}
 - Client {client_id, name, industry, country}
 - PromotionHistory {history_id, from_role, to_role, effective_date}
+- RatingExplanation {explanation_id, employee_id, project_id, period, overall_stars, system_comment, manager_comment}
 
 RELATIONSHIPS:
 - (Employee)-[:BELONGS_TO {since}]->(Department)
@@ -183,6 +184,11 @@ RELATIONSHIPS:
 - (Employee)-[:ASSIGNED_TASK {assigned_date}]->(Task)
 - (Employee)-[:HAS_SPRINT_RATING {overall_stars, period}]->(Sprint)
 - (Employee)-[:HAS_PROJECT_RATING {overall_stars, period, calculation_method}]->(Project)
+- (Employee)-[:HAS_RATING_BREAKDOWN {dimension, dimension_stars, metric_value, metric_type, weight, weighted_contribution, period}]->(Project)
+            // dimension values: PERFORMANCE, RELIABILITY, TEAMWORK, DEVELOPMENT, CRAFTSMANSHIP
+            // Use HAS_RATING_BREAKDOWN when the question asks WHY a rating is low/high, or asks for a breakdown
+- (Employee)-[:HAS_RATING_EXPLANATION {period}]->(RatingExplanation)
+- (RatingExplanation)-[:EXPLAINS_RATING_FOR]->(Project)
 - (PromotionHistory)-[:IN_DEPARTMENT]->(Department)
 
 AVAILABLE VALUES:

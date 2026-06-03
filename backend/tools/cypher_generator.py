@@ -72,6 +72,7 @@ These must be matched before other patterns to avoid falling back to ASSIGNED_TO
 
 IMPORTANT: HAS_PROJECT_RATING uses field `overall_stars` (NOT `stars`). Always use `r.overall_stars`.
 IMPORTANT: When no specific project is mentioned in the question, do NOT filter by project name. Match all projects and ALWAYS include `p.name AS project` in the RETURN clause so the answer knows which project the rating belongs to.
+IMPORTANT: When the question asks WHY a rating is what it is, or asks for a breakdown/explanation/reason, ALWAYS use HAS_RATING_BREAKDOWN (NOT HAS_PROJECT_RATING). Trigger keywords: why, reason, explain, breakdown, what affected, what caused, low rating, poor rating, high rating, how did they score.
 
 Q: What is Ravi Shankar's performance on NeuraVault?
 A: MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {{name: 'NeuraVault'}})
@@ -98,22 +99,28 @@ A: MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {{name: 'NeuraVault'}})
    WHERE r.overall_stars = 1
    RETURN e.full_name, r.overall_stars AS overall_stars, r.period LIMIT {default_limit}
 
-Q: Why does Ravi Shankar have 1 star? / Why does Rajesh have low rating?
+Q: Why does Ravi Shankar have 1 star? / Why does Rajesh have low rating? / why only 1 star for Ravi Shankar / explain Ravi Shankar rating / what caused Ravi Shankar low score
 A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'NeuraVault'}})
    WHERE toLower(e.full_name) CONTAINS toLower('Ravi Shankar')
    RETURN e.full_name, r.dimension, r.dimension_stars, r.metric_value, r.metric_type, r.weight, r.weighted_contribution
    ORDER BY r.weight DESC
 
-Q: Why does Ashok Desai have 1 star on NeuraVault?
+Q: Why does Ashok Desai have 1 star on NeuraVault? / reason for Ashok Desai low rating
 A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'NeuraVault'}})
    WHERE toLower(e.full_name) CONTAINS toLower('Ashok Desai')
    RETURN e.full_name, r.dimension, r.dimension_stars, r.metric_value, r.metric_type, r.weight, r.weighted_contribution
    ORDER BY r.weight DESC
 
-Q: What is Priya Verma's rating breakdown?
+Q: What is Priya Verma's rating breakdown? / explain Priya Verma's rating / how did Priya Verma score?
 A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'NeuraVault'}})
    WHERE toLower(e.full_name) CONTAINS toLower('Priya Verma')
    RETURN e.full_name, r.dimension, r.dimension_stars, r.metric_value, r.metric_type, r.weight, r.weighted_contribution
+   ORDER BY r.weight DESC
+
+Q: Why does Ravi Shankar have low rating? (no project mentioned)
+A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project)
+   WHERE toLower(e.full_name) CONTAINS toLower('Ravi Shankar')
+   RETURN e.full_name, p.name AS project, r.dimension, r.dimension_stars, r.metric_value, r.metric_type, r.weight, r.weighted_contribution
    ORDER BY r.weight DESC
 
 OTHER EXAMPLES:
@@ -487,6 +494,44 @@ LIMIT {CYPHER_DEFAULT_LIMIT}"""
     return CypherValidationResult(valid=True, cypher=cypher)
 
 
+# ─── LLM param extractor ────────────────────────────────────────────────
+def _extract_llm_params(cypher: str, question: str, history: list[dict] = []) -> dict:
+    """
+    When the LLM generates Cypher with $name / $stars params, extract the
+    actual values from the user's question so Neo4j can execute it.
+    Template queries populate params themselves; this covers the LLM path.
+    """
+    params: dict = {}
+
+    if "$name" in cypher:
+        # Broad name capture: any run of Title-Cased words in the question
+        m = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', question)
+        if m:
+            params["name"] = m.group(1).lower()
+        elif history:
+            # Pronoun fallback — pull name from prior conversation
+            name_re = re.compile(r'\b([A-Z][a-z]+ [A-Z][a-z]+)\b')
+            for entry in reversed(history):
+                hm = name_re.search(entry.get("question", "") + " " + entry.get("answer", ""))
+                if hm:
+                    params["name"] = hm.group(1).lower()
+                    break
+
+    if "$stars" in cypher:
+        m = re.search(r'(\d)\s*star', question, re.IGNORECASE)
+        if m:
+            params["stars"] = float(m.group(1))
+
+    if "$project" in cypher:
+        for proj in ["NeuraVault", "SentinelAI", "OrgPulse", "DataBridge",
+                     "MarketLens", "TalentFlow", "CipherSec"]:
+            if proj.lower() in question.lower():
+                params["project"] = proj
+                break
+
+    return params
+
+
 # ─── Public entry point ─────────────────────────────────────────────────
 async def generate_cypher(question: str, history: list[dict] = []) -> CypherValidationResult:
     """
@@ -541,7 +586,8 @@ async def generate_cypher(question: str, history: list[dict] = []) -> CypherVali
         return CypherValidationResult(valid=False, cypher="", reason="Query not supported")
 
     cypher = _enforce_limit(cypher)
-    result = _validate(cypher, question)
+    params = _extract_llm_params(cypher, safe_question, history)
+    result = _validate(cypher, question, params)
     if result.valid:
         return result
 
@@ -563,7 +609,8 @@ async def generate_cypher(question: str, history: list[dict] = []) -> CypherVali
             return CypherValidationResult(valid=False, cypher="", reason="Query not supported")
 
         cypher_retry = _enforce_limit(cypher_retry)
-        result_retry = _validate(cypher_retry, question)
+        params_retry = _extract_llm_params(cypher_retry, safe_question, history)
+        result_retry = _validate(cypher_retry, question, params_retry)
         if result_retry.valid:
             return result_retry
 
