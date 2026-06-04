@@ -12,6 +12,7 @@ Edge cases handled:
 
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_groq import ChatGroq
@@ -184,12 +185,18 @@ The examples in this prompt illustrate required information, not exact wording.
 Generate responses naturally while ensuring all required facts are included.
 Do not mechanically copy the example phrasing unless it is the best way to answer.
 
+COUNTING RULE (critical — never violate):
+The user prompt tells you exactly how many rows were returned as "Data returned (N rows)".
+When your answer includes a count of people/items (e.g. "5 employees have…"), that number MUST equal N.
+Do not estimate or re-count by eye — use the number from the prompt exactly.
+
 FINAL CHECK BEFORE RESPONDING:
 1. Verify every fact comes from the provided data.
 2. Verify no relevant records were omitted.
 3. Verify the response sounds natural and conversational.
 4. Verify no technical/internal fields are exposed.
 5. Verify no assumptions or calculations were added unless explicitly instructed.
+6. Verify any count mentioned in the answer matches the row count from the prompt exactly.
 """
 
 _USER_PROMPT = """{history_block}Question: {question}
@@ -277,4 +284,16 @@ async def format_answer(
         "data": data_str,
     })
 
-    return answer.strip()
+    answer = answer.strip()
+
+    # Guard: if the LLM wrote a wrong count in the preamble, correct it.
+    # Matches patterns like "5 employees have", "3 employees received", etc.
+    if not result.truncated:
+        answer = re.sub(
+            r'\b(\d+)\s+(employees?|people|members?|users?)\b',
+            lambda m: f"{result.row_count} {m.group(2)}" if int(m.group(1)) != result.row_count else m.group(0),
+            answer,
+            count=1,
+        )
+
+    return answer
