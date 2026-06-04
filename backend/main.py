@@ -15,7 +15,7 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
@@ -27,6 +27,8 @@ from routes import (
     project_routes,
     client_routes,
 )
+from routes.dependencies import get_current_user
+from models.auth import UserPayload
 
 
 # ─── Logging setup ──────────────────────────────────────────────────────
@@ -134,6 +136,16 @@ async def root():
         "docs": "/docs",
         "health": "/health",
     }
+
+
+# ─── Admin: cache management ────────────────────────────────────────────
+@app.post("/admin/cache/clear", tags=["Admin"])
+async def clear_cache(user: UserPayload = Depends(get_current_user)):
+    if user.access_level != "L1":
+        raise HTTPException(status_code=403, detail="Admin (L1) access required")
+    deleted = cache.invalidate("okh:*")
+    log.info(f"Cache cleared by {user.email} — {deleted} keys removed")
+    return {"cleared": True, "keys_deleted": deleted}
 
 
 # ─── Direct run support ─────────────────────────────────────────────────

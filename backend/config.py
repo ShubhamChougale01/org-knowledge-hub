@@ -39,8 +39,8 @@ NEO4J_PASSWORD = _required("NEO4J_PASSWORD")
 
 # ─── Groq LLM ────────────────────────────────────────────────────────────
 GROQ_API_KEY   = _required("GROQ_API_KEY")
-GROQ_MODEL     = _optional("GROQ_MODEL", "llama-3.3-70b-versatile")
-# llama-3.3-70b-versatile
+GROQ_MODEL     = _optional("GROQ_MODEL", "llama-3.1-8b-instant")
+# llama-3.1-8b-instant (560 tps, high daily quota) — switch to llama-3.3-70b-versatile for max accuracy
 # ─── LangSmith Tracing ───────────────────────────────────────────────────
 LANGSMITH_API_KEY = _required("LANGSMITH_API_KEY")
 LANGSMITH_PROJECT = _required("LANGSMITH_PROJECT")

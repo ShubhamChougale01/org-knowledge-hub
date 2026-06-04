@@ -188,7 +188,26 @@ async def test_rating_breakdown():
           len(breakdowns) > 0 and breakdowns[0].get("n", 0) > 0,
           f"got {breakdowns[0].get('n', 0) if breakdowns else 0}")
 
-    # Test 5: Get rating explanation for known employee
+    # Test 5: "Who has 4 stars on NeuraVault?" must return all 7 employees (regression: Pooja Verma was missing)
+    star_list = graph.run_query("""
+        MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {name: 'NeuraVault'})
+        WHERE r.period = '2024-Q1'
+        WITH e.full_name AS name, round(sum(r.weighted_contribution)) AS total_stars
+        WHERE total_stars = 4
+        RETURN name ORDER BY name
+    """)
+    check("4-star NeuraVault 2024-Q1 returns 7 employees",
+          len(star_list) == 7,
+          f"got {len(star_list)} employees: {[r.get('name') for r in star_list]}")
+    star_names = [r.get("name") for r in star_list]
+    check("Pooja Verma present in 4-star list",
+          "Pooja Verma" in star_names,
+          f"names returned: {star_names}")
+    check("Sanjay Chopra present in 4-star list",
+          "Sanjay Chopra" in star_names,
+          f"names returned: {star_names}")
+
+    # Test 6: Get rating explanation for known employee
     try:
         user = _make_user("L4")
         # Find an employee with a rating

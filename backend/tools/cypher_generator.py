@@ -99,6 +99,26 @@ A: MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {{name: 'NeuraVault'}})
    WHERE r.overall_stars = 1
    RETURN e.full_name, r.overall_stars AS overall_stars, r.period LIMIT {default_limit}
 
+KEY RULE: For "who has N stars" LIST queries, ALWAYS aggregate HAS_RATING_BREAKDOWN (not HAS_PROJECT_RATING).
+HAS_PROJECT_RATING may have missing or stale summary rows, causing employees to be dropped from results.
+Use this pattern instead:
+
+Q: Who has 4 stars on NeuraVault in 2024-Q1?
+A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'NeuraVault'}})
+   WHERE r.period = '2024-Q1'
+   WITH e.full_name AS name, p.name AS project, r.period AS period, round(sum(r.weighted_contribution)) AS total_stars
+   WHERE total_stars = 4
+   RETURN name, project, period, total_stars AS overall_stars
+   ORDER BY name
+
+Q: List all 3-star employees on SentinelAI?
+A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'SentinelAI'}})
+   WHERE r.period = '2024-Q1'
+   WITH e.full_name AS name, p.name AS project, r.period AS period, round(sum(r.weighted_contribution)) AS total_stars
+   WHERE total_stars = 3
+   RETURN name, project, period, total_stars AS overall_stars
+   ORDER BY name
+
 Q: Why does Ravi Shankar have 1 star? / Why does Rajesh have low rating? / why only 1 star for Ravi Shankar / explain Ravi Shankar rating / what caused Ravi Shankar low score
 A: MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {{name: 'NeuraVault'}})
    WHERE toLower(e.full_name) CONTAINS toLower('Ravi Shankar')
@@ -336,7 +356,7 @@ def _extract_employee_name(question: str) -> str | None:
         r"(?:performance|rating|stars)\s+(?:of|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
     ]
     for pattern in patterns:
-        m = re.search(pattern, question, re.IGNORECASE)
+        m = re.search(pattern, question)
         if m:
             return m.group(1).strip()
     return None
@@ -364,14 +384,27 @@ def _match_rating_template(question: str, history: list[dict] = []) -> CypherVal
     if any(kw in q_lower for kw in why_keywords):
         return None
 
-    # "Who has N stars on NeuraVault?"
+    # "Who has N stars on [Project]?" — aggregate HAS_RATING_BREAKDOWN per employee
+    # HAS_PROJECT_RATING can miss employees with missing summary rows; raw aggregation is authoritative.
     stars = _extract_star_count(question)
-    if stars and "who" in q_lower:
-        cypher = f"""MATCH (e:Employee)-[r:HAS_PROJECT_RATING]->(p:Project {{name: 'NeuraVault'}})
-WHERE r.overall_stars = $stars
-RETURN e.full_name AS full_name, p.name AS project, r.overall_stars AS overall_stars, r.period AS period
-LIMIT {CYPHER_DEFAULT_LIMIT}"""
-        return CypherValidationResult(valid=True, cypher=cypher, params={"stars": float(stars)})
+    if stars and any(w in q_lower for w in ["who", "which employee", "list"]):
+        import re as _re
+        proj_m = _re.search(
+            r"(?:on|in|for|from)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)",
+            question
+        )
+        project = proj_m.group(1).strip() if proj_m else "NeuraVault"
+        cypher = """MATCH (e:Employee)-[r:HAS_RATING_BREAKDOWN]->(p:Project {name: $project})
+WHERE r.period = $period
+WITH e.full_name AS name, p.name AS project, r.period AS period, round(sum(r.weighted_contribution)) AS total_stars
+WHERE total_stars = $stars
+RETURN name, project, period, total_stars AS overall_stars
+ORDER BY name"""
+        return CypherValidationResult(
+            valid=True,
+            cypher=cypher,
+            params={"stars": float(stars), "project": project, "period": "2024-Q1"}
+        )
 
     # "What is X's performance / How many stars does X have?"
     name = _extract_employee_name(question)
